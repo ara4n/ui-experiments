@@ -1,0 +1,103 @@
+<html>
+
+<head>
+<link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet">
+
+<style type="text/css">
+body {
+    font-family: Nunito;
+}
+
+.control {
+    position: relative;
+    top: 100px;
+    left: 100px;
+}
+
+label {
+    transition: font-size 0.25s ease-out 0.1s, color 0.25s ease-out 0.1s, top 0.25s ease-out 0.1s, background-color 0.25s ease-out 0.1s;
+
+    color: #454545;
+    background-color: transparent;
+    font-size: 14px;
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    margin: 6px 8px 6px 8px;
+    padding: 2px;
+}
+
+label.shrunk {
+    transition: font-size 0.25s ease-out 0s, color 0.25s ease-out 0s, top 0.25s ease-out 0s, background-color 0.25s ease-out 0s;
+
+    font-size: 10px;
+    color: #7ac9a1;
+    top: -14px;
+    background-color: #fff;
+}
+
+input[type="text"] {
+    font-family: Nunito;
+    width: 250px;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: border-color 0.25s;
+    border: 1px solid #e7e7e7;
+    padding: 8px 10px 8px 10px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+input[type="text"].valid {
+    border-color: #7ac9a1;
+}
+
+input[type="text"]:focus {
+    outline: 0;
+    transition: border-color 0.25s;
+    border-color: #7ac9a1;
+}
+
+input::placeholder {
+    transition: color 0.25s ease-in 0s;
+    color: transparent;
+}
+
+input:placeholder-shown:focus::placeholder {
+    transition: color 0.25s ease-in 0.1s;
+    color: #888;
+}
+</style>
+
+<script type="text/javascript">
+    function onFocus(e) {
+        const el = document.getElementById("field_label");
+        el.className = "shrunk";
+    }
+
+    function onBlur(e) {
+        const el = document.getElementById("field_label");
+        if (e.target.value === '') {
+            el.className = "";
+            e.target.className = "";
+        }
+        else {
+            // XXX: we need to distinguish between focused & valid :/
+            e.target.className = "valid";
+        }
+    }
+</script>
+
+</head>
+
+<body>
+
+<div class="control">
+    <input id="field" type="text" placeholder="Placeholder" onFocus="onFocus(event)" onBlur="onBlur(event)"/>
+    <label id="field_label" for="field">Label</label>
+</div>
+
+</body>
+
+</html>

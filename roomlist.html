@@ -1,0 +1,216 @@
+<html>
+
+<head>
+<style type="text/css">
+.Handle {
+    border: 2px solid #888;
+    cursor: ns-resize;
+    width: 196px;
+}
+
+.resizing {
+    user-select: none;
+}
+
+.RoomList {
+    width: 200px;
+    height: 500px;
+    overflow: none;
+    border: 1px solid #888;
+}
+
+.RoomSubList {
+    overflow-y: scroll;
+    overflow-x: none;
+}
+</style>
+
+<script type="text/javascript">
+    let originalHeights = [];
+    let heights = [];
+    const minHeight = 30;
+    const sectionCount = 5;
+    const handleHeight = 4;
+
+    function getTotalHeight() {
+        const roomList = document.getElementById("roomList");
+        return roomList.clientHeight - ((sectionCount - 1) * (handleHeight));
+    }
+
+    function onLoad() {
+        const height = getTotalHeight();
+        for (let i = 1; i <= sectionCount - 1; i++) {
+            const handle = document.getElementById(`handle${i}`);
+            handle.addEventListener("mousedown", onMouseDown);
+        }
+        for (let i = 1; i <= sectionCount; i++) {
+            originalHeights[i] = height / sectionCount;
+        }
+        heights = originalHeights.slice(0);
+        layout(1);
+    }
+
+    function calcOverflow() {
+        let newTotalHeight = 0;
+        for (let i = 1; i <= sectionCount; i++) {
+            newTotalHeight += heights[i];
+        }
+        return newTotalHeight - getTotalHeight();
+    }
+
+    function clamp(height, min, max) {
+        //console.log(`clamping ${height} between ${min} and ${max}`);
+        if (height > max) return max;
+        if (height < min) return min;
+        return height;
+    }
+
+    function applyOverflow(overflow, sections) {
+        //console.log("applyOverflow", overflow, sections);
+        // take the given overflow amount, and applies it to the given sections.
+        // calls itself recursively until it has distributed all the overflow
+        // or run out of unclamped sections.
+
+        let unclampedSections = [];
+
+        const overflowPerSection = overflow / sections.length;
+        for (const i of sections) {
+            const roomSubList = document.getElementById(`roomSubList${i}`);
+            newHeight = clamp(heights[i] - overflowPerSection, minHeight, roomSubList.scrollHeight);
+            if (newHeight == heights[i] - overflowPerSection) {
+                unclampedSections.push(i);
+            }
+            overflow -= heights[i] - newHeight;
+            heights[i] = newHeight;
+        }
+
+        if (Math.abs(overflow) > 1.0 && unclampedSections.length > 0) {
+            // we weren't able to distribute all the overflow so recurse and try again
+            //console.log("recursing with", overflow, unclampedSections);
+            overflow = applyOverflow(overflow, unclampedSections);
+        }
+
+        return overflow;
+    }
+
+    function layout(anchor) {
+        // cap the anchor - the section we are trying to resize.
+        const roomSubList = document.getElementById(`roomSubList${anchor}`);
+        heights[anchor] = clamp(heights[anchor], minHeight, roomSubList.scrollHeight);
+
+        let overflow = calcOverflow();
+        // rebalance downstream sections only to prevent the top of our anchor section
+        // moving about and causing the mouse pointer to drift from the handle
+        let sections = [];
+        for (let i = anchor + 1; i <= sectionCount; i++) {
+            sections.push(i);
+        }
+        overflow = applyOverflow(overflow, sections);
+
+        if (Math.abs(overflow) > 1.0) {
+            // we haven't managed to rebalance downstream sections, so as a last resort
+            // rebalance the anchor itself.
+            overflow = applyOverflow(overflow, [anchor]);
+        }
+
+        if (overflow > 1.0) {
+            console.warn(`Failed to redistribute the overflow - list is ${overflow}px higher than the container`);
+        }
+
+        // apply the heights
+        for (let i = 1; i <= sectionCount; i++) {
+            const roomSubList = document.getElementById(`roomSubList${i}`);
+            roomSubList.style.height = `${heights[i]}px`;
+        }
+    }
+
+    let anchor = 0;
+    let y = 0;
+
+    function onMouseDown(e) {
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+        anchor = parseInt(e.target.id.substr(-1));
+        document.getElementById("roomList").className="RoomList resizing";
+        y = e.clientY;
+    }
+
+    function onMouseMove(e) {
+        heights = originalHeights.slice(0);
+        heights[anchor] += e.clientY - y;
+        layout(anchor);
+    }
+
+    function onMouseUp(e) {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        document.getElementById("roomList").className="RoomList";
+        originalHeights = heights;
+    }
+
+
+</script>
+</head>
+
+<body onLoad="onLoad()">
+
+<div id="roomList" class="RoomList">
+    <div id="roomSubList1" class="RoomSubList">
+        <div class="RoomTile">Room 1</div>
+        <div class="RoomTile">Room 2</div>
+        <div class="RoomTile">Room 3</div>
+        <div class="RoomTile">Room 4</div>
+        <div class="RoomTile">Room 5</div>
+        <div class="RoomTile">Room 6</div>
+        <div class="RoomTile">Room 7</div>
+        <div class="RoomTile">Room 8</div>
+    </div>
+    <div id="handle1" class="Handle"></div>
+    <div id="roomSubList2" class="RoomSubList">
+        <div class="RoomTile">Room 1</div>
+        <div class="RoomTile">Room 2</div>
+        <div class="RoomTile">Room 3</div>
+        <div class="RoomTile">Room 4</div>
+        <div class="RoomTile">Room 5</div>
+        <div class="RoomTile">Room 6</div>
+        <div class="RoomTile">Room 7</div>
+        <div class="RoomTile">Room 8</div>
+    </div>
+    <div id="handle2" class="Handle"></div>
+    <div id="roomSubList3" class="RoomSubList">
+        <div class="RoomTile">Room 1</div>
+        <div class="RoomTile">Room 2</div>
+        <div class="RoomTile">Room 3</div>
+        <div class="RoomTile">Room 4</div>
+        <div class="RoomTile">Room 5</div>
+        <div class="RoomTile">Room 6</div>
+        <div class="RoomTile">Room 7</div>
+        <div class="RoomTile">Room 8</div>
+    </div>
+    <div id="handle3" class="Handle"></div>
+    <div id="roomSubList4" class="RoomSubList">
+        <div class="RoomTile">Room 1</div>
+        <div class="RoomTile">Room 2</div>
+        <div class="RoomTile">Room 3</div>
+        <div class="RoomTile">Room 4</div>
+        <div class="RoomTile">Room 5</div>
+        <div class="RoomTile">Room 6</div>
+        <div class="RoomTile">Room 7</div>
+        <div class="RoomTile">Room 8</div>
+    </div>
+    <div id="handle4" class="Handle"></div>
+    <div id="roomSubList5" class="RoomSubList">
+        <div class="RoomTile">Room 1</div>
+        <div class="RoomTile">Room 2</div>
+        <div class="RoomTile">Room 3</div>
+        <div class="RoomTile">Room 4</div>
+        <div class="RoomTile">Room 5</div>
+        <div class="RoomTile">Room 6</div>
+        <div class="RoomTile">Room 7</div>
+        <div class="RoomTile">Room 8</div>
+    </div>
+</div>
+
+</body>
+
+</html>
