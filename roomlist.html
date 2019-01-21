@@ -2,6 +2,11 @@
 
 <head>
 <style type="text/css">
+body {
+    height: 100%;
+    margin: 0px;
+}
+
 .Handle {
     border: 2px solid #888;
     cursor: ns-resize;
@@ -9,14 +14,14 @@
 }
 
 .resizing {
-    user-select: none;
 }
 
 .RoomList {
     width: 200px;
-    height: 500px;
+    height: 100%;
     overflow: none;
     border: 1px solid #888;
+    user-select: none;
 }
 
 .RoomSubList {
@@ -47,15 +52,7 @@
             originalHeights[i] = height / sectionCount;
         }
         heights = originalHeights.slice(0);
-        layout(1);
-    }
-
-    function calcOverflow() {
-        let newTotalHeight = 0;
-        for (let i = 1; i <= sectionCount; i++) {
-            newTotalHeight += heights[i];
-        }
-        return newTotalHeight - getTotalHeight();
+        layout(1, 0);
     }
 
     function clamp(height, min, max) {
@@ -81,40 +78,83 @@
                 unclampedSections.push(i);
             }
             overflow -= heights[i] - newHeight;
+
+            // console.log(`changing ${heights[i]} to ${newHeight}`);
             heights[i] = newHeight;
+
+            // console.log(`for section ${i} overflow is ${overflow}`);
         }
 
         if (Math.abs(overflow) > 1.0 && unclampedSections.length > 0) {
             // we weren't able to distribute all the overflow so recurse and try again
-            //console.log("recursing with", overflow, unclampedSections);
+            console.log("recursing with", overflow, unclampedSections);
             overflow = applyOverflow(overflow, unclampedSections);
         }
 
         return overflow;
     }
 
-    function layout(anchor) {
-        // cap the anchor - the section we are trying to resize.
+    function rebalanceAbove(overflowAbove) {
+        if (Math.abs(overflowAbove) > 1.0) {
+            console.log(`trying to rebalance upstream with ${overflowAbove}`);
+            let sections = [];
+            for (let i = anchor - 1; i >= 1; i--) {
+                sections.push(i);
+            }
+            overflowAbove = applyOverflow(overflowAbove, sections);
+        }
+        return overflowAbove;
+    }
+
+    function rebalanceBelow(overflowBelow) {
+        if (Math.abs(overflowBelow) > 1.0) {
+            console.log(`trying to rebalance downstream with ${overflowBelow}`);
+            let sections = [];
+            for (let i = anchor + 1; i <= sectionCount; i++) {
+                sections.push(i);
+            }
+            overflowBelow = applyOverflow(overflowBelow, sections);
+        }
+        return overflowBelow;
+    }
+
+    function layout(anchor, offset) {
+        heights = originalHeights.slice(0);
+
+        let overflowAbove;
+        let overflowBelow;
+
         const roomSubList = document.getElementById(`roomSubList${anchor}`);
-        heights[anchor] = clamp(heights[anchor], minHeight, roomSubList.scrollHeight);
-
-        let overflow = calcOverflow();
-        // rebalance downstream sections only to prevent the top of our anchor section
-        // moving about and causing the mouse pointer to drift from the handle
-        let sections = [];
-        for (let i = anchor + 1; i <= sectionCount; i++) {
-            sections.push(i);
+        if (heights[anchor] + offset > roomSubList.scrollHeight) {
+            // we're pulling downwards and clamped
+            overflowAbove = (roomSubList.scrollHeight - heights[anchor]) - offset;
+            overflowBelow = offset;
+            console.log(`pulling downwards clamped at max: ${overflowAbove} ${overflowBelow}`);
         }
-        overflow = applyOverflow(overflow, sections);
-
-        if (Math.abs(overflow) > 1.0) {
-            // we haven't managed to rebalance downstream sections, so as a last resort
-            // rebalance the anchor itself.
-            overflow = applyOverflow(overflow, [anchor]);
+        else if (heights[anchor] + offset < minHeight) {
+            // we're pulling upwards and clamped
+            overflowAbove = (minHeight - heights[anchor]) - offset;
+            overflowBelow = offset;
+            console.log(`pulling upwards clamped at min: ${overflowAbove} ${overflowBelow}`);
         }
+        else {
+            overflowAbove = 0;
+            overflowBelow = offset;
+            console.log(`resizing the anchor: ${overflowAbove} ${overflowBelow}`);
+        }
+        heights[anchor] = clamp(heights[anchor] + offset, minHeight, roomSubList.scrollHeight);
 
-        if (overflow > 1.0) {
-            console.warn(`Failed to redistribute the overflow - list is ${overflow}px higher than the container`);
+        overflowAbove = rebalanceAbove(overflowAbove);
+        overflowBelow = rebalanceBelow(overflowBelow);
+
+        // clamp to avoid overflowing or underflowing the page
+        if (Math.abs(overflowAbove) > 1.0) {
+            layout(anchor, offset + overflowAbove);
+            return;
+        }
+        if (Math.abs(overflowBelow) > 1.0) {
+            layout(anchor, offset - overflowBelow);
+            return;
         }
 
         // apply the heights
@@ -124,8 +164,14 @@
         }
     }
 
+    function onResize(e) {
+//        layout(1, 0);
+    }
+
     let anchor = 0;
     let y = 0;
+
+    document.addEventListener("resize", onResize);
 
     function onMouseDown(e) {
         document.addEventListener("mousemove", onMouseMove);
@@ -136,9 +182,7 @@
     }
 
     function onMouseMove(e) {
-        heights = originalHeights.slice(0);
-        heights[anchor] += e.clientY - y;
-        layout(anchor);
+        layout(anchor, e.clientY - y);
     }
 
     function onMouseUp(e) {
