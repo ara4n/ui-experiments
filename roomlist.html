@@ -194,30 +194,12 @@ body {
     let lastHeight;
 
     function onResize(e) {
-        const newHeight = getTotalHeight();
-        let totalSectionHeight = 0;
-        const maxHeights = [];
-        for (let i = 1; i <= sectionCount; i++) {
-            const roomSubList = document.getElementById(`roomSubList${i}`);
-            maxHeights[i] = roomSubList.scrollHeight;
-            totalSectionHeight += maxHeights[i];
-        }
-        if (newHeight < totalSectionHeight) {
-            if (lastHeight) {
-                for (let i = 1; i <= sectionCount; i++) {
-                    originalHeights[i] *= newHeight/lastHeight;
-                    originalHeights[i] = clamp(originalHeights[i], minHeight, maxHeights[i]);
-                }
-                layout(1, 0);
+        newHeight = getTotalHeight();
+        if (lastHeight) {
+            for (let i = 1; i <= sectionCount; i++) {
+                originalHeights[i] += (newHeight - lastHeight) / sectionCount;
             }
-        }
-        else {
-            if (lastHeight) {
-                for (let i = 1; i <= sectionCount; i++) {
-                    originalHeights[i] = maxHeights[i];
-                }
-                layout(1, 0);
-            }
+            layout(0, 1);
         }
         lastHeight = newHeight;
     }
