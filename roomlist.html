@@ -118,7 +118,8 @@ body {
         return overflowBelow;
     }
 
-    function layout(anchor, offset) {
+    // if we're clamped, return the offset we should be clamped at.
+    function layout(anchor, offset, clamped) {
         heights = originalHeights.slice(0);
 
         let overflowAbove;
@@ -147,14 +148,19 @@ body {
         overflowAbove = rebalanceAbove(overflowAbove);
         overflowBelow = rebalanceBelow(overflowBelow);
 
-        // clamp to avoid overflowing or underflowing the page
-        if (Math.abs(overflowAbove) > 1.0) {
-            layout(anchor, offset + overflowAbove);
-            return;
-        }
-        if (Math.abs(overflowBelow) > 1.0) {
-            layout(anchor, offset - overflowBelow);
-            return;
+        if (!clamped) { // to avoid risk of infinite recursion
+            // clamp to avoid overflowing or underflowing the page
+            if (Math.abs(overflowAbove) > 1.0) {
+                console.log(`clamping with overflowAbove ${overflowAbove}`);
+                layout(anchor, offset + overflowAbove, true);
+                return offset + overflowAbove;
+            }
+
+            if (Math.abs(overflowBelow) > 1.0) {
+                console.log(`clamping with overflowBelow ${overflowBelow}`);
+                layout(anchor, offset - overflowBelow, true);
+                return offset - overflowBelow;
+            }
         }
 
         // apply the heights
@@ -162,16 +168,28 @@ body {
             const roomSubList = document.getElementById(`roomSubList${i}`);
             roomSubList.style.height = `${heights[i]}px`;
         }
+
+        return undefined;
     }
 
+    let lastHeight;
+
     function onResize(e) {
-//        layout(1, 0);
+        const newHeight = getTotalHeight();
+        if (lastHeight) {
+            for (let i = 1; i <= sectionCount; i++) {
+                originalHeights[i] *= newHeight/lastHeight;
+            }
+            layout(1, 0);
+        }
+        lastHeight = newHeight;
     }
 
     let anchor = 0;
     let y = 0;
+    let lastOffset = 0;
 
-    document.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize);
 
     function onMouseDown(e) {
         document.addEventListener("mousemove", onMouseMove);
@@ -181,11 +199,24 @@ body {
         y = e.clientY;
     }
 
+    let clamped = undefined;
     function onMouseMove(e) {
-        layout(anchor, e.clientY - y);
+        const offset = e.clientY - y;
+        if (Math.sign(offset) != Math.sign(lastOffset)) clamped = undefined;
+        if (clamped !== undefined) {
+            if (offset < 0 && offset < clamped) return;
+            if (offset > 0 && offset > clamped) return;
+        }
+        clamped = layout(anchor, offset);
+        if (clamped !== undefined) {
+            console.log(`layout is clamped to offset ${clamped}`);
+        }
+        lastOffset = offset;
     }
 
     function onMouseUp(e) {
+        clamped = undefined;
+        lastOffset = 0;
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
         document.getElementById("roomList").className="RoomList";
