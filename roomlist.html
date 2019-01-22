@@ -217,23 +217,23 @@ body {
         y = e.clientY;
     }
 
-    let clamped = undefined;
+    let clampedOffset = undefined;
     function onMouseMove(e) {
         const offset = e.clientY - y;
-        if (Math.sign(offset) != Math.sign(lastOffset)) clamped = undefined;
-        if (clamped !== undefined) {
-            if (offset < 0 && offset < clamped) return;
-            if (offset > 0 && offset > clamped) return;
+        if (Math.sign(offset) != Math.sign(lastOffset)) clampedOffset = undefined;
+        if (clampedOffset !== undefined) {
+            if (offset < 0 && offset < clampedOffset) return;
+            if (offset > 0 && offset > clampedOffset) return;
         }
-        clamped = layout(anchor, offset);
-        if (clamped !== undefined) {
-            console.log(`layout is clamped to offset ${clamped}`);
+        clampedOffset = layout(anchor, offset);
+        if (clampedOffset !== undefined) {
+            console.log(`layout is clamped to offset ${clampedOffset}`);
         }
         lastOffset = offset;
     }
 
     function onMouseUp(e) {
-        clamped = undefined;
+        clampedOffset = undefined;
         lastOffset = 0;
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
