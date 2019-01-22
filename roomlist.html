@@ -111,6 +111,8 @@ body {
 
         if (Math.abs(overflow) > 1.0 && unclampedSections.length > 0) {
             // we weren't able to distribute all the overflow so recurse and try again
+            // XXX: this equally could be done as a loop rather than recursion;
+            // while (abs(overflow) > 1) { keep applying overflow to unclamped sections }
             console.log("recursing with", overflow, unclampedSections);
             overflow = applyOverflow(overflow, unclampedSections);
         }
@@ -165,7 +167,7 @@ body {
         else {
             overflowAbove = 0;
             overflowBelow = offset;
-            console.log(`resizing the anchor: ${overflowAbove} ${overflowBelow}`);
+            //console.log(`resizing the anchor: ${overflowAbove} ${overflowBelow}`);
         }
         heights[anchor] = clamp(heights[anchor] + offset, minHeight, getMaxHeight(anchor));
 
@@ -197,16 +199,44 @@ body {
     }
 
     let lastHeight;
+    let lastClientHeight;
 
     function onResize(e) {
         newHeight = getTotalHeight();
         if (lastHeight) {
-            for (let i = 1; i <= sectionCount; i++) {
-                originalHeights[i] += (newHeight - lastHeight) / sectionCount;
+            let offset = newHeight - lastHeight;
+            let unclampedSections = [];
+            // XXX: this is screaming out to be unified with the main layout algorithm
+            // rather than effectively reimplementing it for the special case of
+            // resizing the total list...
+            for (let i = 1; i <= sectionCount; i++) unclampedSections.push(i);
+            while (Math.abs(offset) > 1.0 && unclampedSections.length) {
+                // FIXME: this results in rounding errors, causing the total height of
+                // the control to drift relative to the window height.
+                //
+                // We should instead be enforcing some invariant to ensure that the sections
+                // always fit on the page correctly (whether we're resizing individual sections
+                // or the whole control)
+
+                let offsetPerSection = offset / unclampedSections.length;
+                //console.log(`resizing with offset ${offset} and offsetPerSection ${offsetPerSection} and unclampedSections `, unclampedSections);
+                for (let i of unclampedSections) {
+                    const fixedHeight = clamp(originalHeights[i] + offsetPerSection, minHeight, getMaxHeight(i));
+                    if (fixedHeight !== originalHeights[i] + offsetPerSection) {
+                        unclampedSections.splice(unclampedSections.indexOf(i), 1);
+                    }
+                    //console.log(`reducing offset by ${fixedHeight - originalHeights[i]}`);
+                    offset -= fixedHeight - originalHeights[i];
+                    originalHeights[i] = fixedHeight;
+                }
             }
-            layout(0, 1);
+            layout(1, 0);
         }
+        console.log(`resized from ${lastHeight} to ${newHeight}: ${newHeight-lastHeight}`);
         lastHeight = newHeight;
+
+        console.log(`window changed from ${lastClientHeight} to ${window.innerHeight}: ${window.innerHeight - lastClientHeight}`);
+        lastClientHeight = window.innerHeight;
     }
 
     let anchor = 0;
