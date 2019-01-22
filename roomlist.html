@@ -87,19 +87,21 @@ body {
 
         let unclampedSections = [];
 
+        console.log(`blendOverflow = ${blendOverflow}`);
+
         let overflowPerSection = blendOverflow ? (overflow / sections.length) : overflow;
         for (const i of sections) {
-            newHeight = clamp(heights[i] - overflow, minHeight, getMaxHeight(i));
-            if (newHeight == heights[i] - overflow) {
+            newHeight = clamp(heights[i] - overflowPerSection, minHeight, getMaxHeight(i));
+            if (newHeight == heights[i] - overflowPerSection) {
                 unclampedSections.push(i);
             }
             overflow -= heights[i] - newHeight;
-            console.log(`heights[${i}] (${heights[i]}) - newHeight (${newHeight}) = ${heights[i] - newHeight}`);
+            // console.log(`heights[${i}] (${heights[i]}) - newHeight (${newHeight}) = ${heights[i] - newHeight}`);
 
             // console.log(`changing ${heights[i]} to ${newHeight}`);
             heights[i] = newHeight;
 
-            //console.log(`for section ${i} overflow is ${overflow}`);
+            // console.log(`for section ${i} overflow is ${overflow}`);
 
             if (!blendOverflow) {
                 overflowPerSection = overflow;
