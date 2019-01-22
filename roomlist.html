@@ -20,7 +20,6 @@ body {
     width: 200px;
     height: 100%;
     overflow: none;
-    border: 1px solid #888;
     user-select: none;
 }
 
@@ -40,6 +39,10 @@ body {
     // subjective config
     const allowWhitespace = true;
     const blendOverflow = false;
+
+    // when filtering: expand all categories, and set allowWhitespace to false
+    // so the sections automatically bubble towards the top of the list as you
+    // filter?
 
     function getTotalHeight() {
         const roomList = document.getElementById("roomList");
