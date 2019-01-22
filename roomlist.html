@@ -37,6 +37,10 @@ body {
     const sectionCount = 5;
     const handleHeight = 4;
 
+    // subjective config
+    const allowWhitespace = true;
+    const blendOverflow = false;
+
     function getTotalHeight() {
         const roomList = document.getElementById("roomList");
         return roomList.clientHeight - ((sectionCount - 1) * (handleHeight));
@@ -62,6 +66,16 @@ body {
         return height;
     }
 
+    function getMaxHeight(i) {
+        if (allowWhitespace) {
+            return 100000;
+        }
+        else {
+            const roomSubList = document.getElementById(`roomSubList${i}`);
+            return roomSubList.scrollHeight;
+        }
+    }
+
     function applyOverflow(overflow, sections) {
         //console.log("applyOverflow", overflow, sections);
         // take the given overflow amount, and applies it to the given sections.
@@ -70,19 +84,24 @@ body {
 
         let unclampedSections = [];
 
-        const overflowPerSection = overflow / sections.length;
+        let overflowPerSection = blendOverflow ? (overflow / sections.length) : overflow;
         for (const i of sections) {
-            const roomSubList = document.getElementById(`roomSubList${i}`);
-            newHeight = clamp(heights[i] - overflowPerSection, minHeight, roomSubList.scrollHeight);
-            if (newHeight == heights[i] - overflowPerSection) {
+            newHeight = clamp(heights[i] - overflow, minHeight, getMaxHeight(i));
+            if (newHeight == heights[i] - overflow) {
                 unclampedSections.push(i);
             }
             overflow -= heights[i] - newHeight;
+            console.log(`heights[${i}] (${heights[i]}) - newHeight (${newHeight}) = ${heights[i] - newHeight}`);
 
             // console.log(`changing ${heights[i]} to ${newHeight}`);
             heights[i] = newHeight;
 
-            // console.log(`for section ${i} overflow is ${overflow}`);
+            //console.log(`for section ${i} overflow is ${overflow}`);
+
+            if (!blendOverflow) {
+                overflowPerSection = overflow;
+                if (Math.abs(overflow) < 1.0) break;
+            }
         }
 
         if (Math.abs(overflow) > 1.0 && unclampedSections.length > 0) {
@@ -114,6 +133,7 @@ body {
                 sections.push(i);
             }
             overflowBelow = applyOverflow(overflowBelow, sections);
+            //console.log(`rebalanced downstream with ${overflowBelow}`);
         }
         return overflowBelow;
     }
@@ -125,10 +145,9 @@ body {
         let overflowAbove;
         let overflowBelow;
 
-        const roomSubList = document.getElementById(`roomSubList${anchor}`);
-        if (heights[anchor] + offset > roomSubList.scrollHeight) {
+        if (heights[anchor] + offset > getMaxHeight(anchor)) {
             // we're pulling downwards and clamped
-            overflowAbove = (roomSubList.scrollHeight - heights[anchor]) - offset;
+            overflowAbove = (getMaxHeight(anchor) - heights[anchor]) - offset;
             overflowBelow = offset;
             console.log(`pulling downwards clamped at max: ${overflowAbove} ${overflowBelow}`);
         }
@@ -143,7 +162,7 @@ body {
             overflowBelow = offset;
             console.log(`resizing the anchor: ${overflowAbove} ${overflowBelow}`);
         }
-        heights[anchor] = clamp(heights[anchor] + offset, minHeight, roomSubList.scrollHeight);
+        heights[anchor] = clamp(heights[anchor] + offset, minHeight, getMaxHeight(anchor));
 
         overflowAbove = rebalanceAbove(overflowAbove);
         overflowBelow = rebalanceBelow(overflowBelow);
