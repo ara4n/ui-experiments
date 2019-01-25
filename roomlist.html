@@ -198,45 +198,42 @@ body {
         return undefined;
     }
 
-    let lastHeight;
-    let lastClientHeight;
-
     function onResize(e) {
-        newHeight = getTotalHeight();
-        if (lastHeight) {
-            let offset = newHeight - lastHeight;
-            let unclampedSections = [];
-            // XXX: this is screaming out to be unified with the main layout algorithm
-            // rather than effectively reimplementing it for the special case of
-            // resizing the total list...
-            for (let i = 1; i <= sectionCount; i++) unclampedSections.push(i);
-            while (Math.abs(offset) > 1.0 && unclampedSections.length) {
-                // FIXME: this results in rounding errors, causing the total height of
-                // the control to drift relative to the window height.
-                //
-                // We should instead be enforcing some invariant to ensure that the sections
-                // always fit on the page correctly (whether we're resizing individual sections
-                // or the whole control)
+        let newHeight = getTotalHeight();
 
-                let offsetPerSection = offset / unclampedSections.length;
-                //console.log(`resizing with offset ${offset} and offsetPerSection ${offsetPerSection} and unclampedSections `, unclampedSections);
-                for (let i of unclampedSections) {
-                    const fixedHeight = clamp(originalHeights[i] + offsetPerSection, minHeight, getMaxHeight(i));
-                    if (fixedHeight !== originalHeights[i] + offsetPerSection) {
-                        unclampedSections.splice(unclampedSections.indexOf(i), 1);
-                    }
-                    //console.log(`reducing offset by ${fixedHeight - originalHeights[i]}`);
-                    offset -= fixedHeight - originalHeights[i];
-                    originalHeights[i] = fixedHeight;
+        let currHeight = 0;
+        for (let i = 1; i <= sectionCount; i++) currHeight += originalHeights[i];
+
+        let offset = newHeight - currHeight;
+        let unclampedSections = [];
+        // XXX: this is screaming out to be unified with the main layout algorithm
+        // rather than effectively reimplementing it for the special case of
+        // resizing the total list...
+        for (let i = 1; i <= sectionCount; i++) unclampedSections.push(i);
+        while (Math.abs(offset) > 1.0 && unclampedSections.length) {
+
+            let offsetPerSection = Math.sign(offset) * Math.ceil(Math.abs(offset) / unclampedSections.length);
+            //console.log(`resizing with offset ${offset} and offsetPerSection ${offsetPerSection} and unclampedSections `, unclampedSections);
+            const sections = unclampedSections.slice(0);
+            for (let i of sections) {
+                const fixedHeight = clamp(originalHeights[i] + offsetPerSection, minHeight, getMaxHeight(i));
+                if (fixedHeight !== originalHeights[i] + offsetPerSection) {
+                    unclampedSections.splice(unclampedSections.indexOf(i), 1);
                 }
+                console.log(`reducing offset ${offset} by ${fixedHeight - originalHeights[i]}`);
+                offset -= fixedHeight - originalHeights[i];
+                if (Math.abs(offset) < 1.0) {
+                    break;
+                }
+                originalHeights[i] = fixedHeight;
             }
-            layout(1, 0);
         }
-        console.log(`resized from ${lastHeight} to ${newHeight}: ${newHeight-lastHeight}`);
-        lastHeight = newHeight;
 
-        console.log(`window changed from ${lastClientHeight} to ${window.innerHeight}: ${window.innerHeight - lastClientHeight}`);
-        lastClientHeight = window.innerHeight;
+        // apply the heights
+        for (let i = 1; i <= sectionCount; i++) {
+            const roomSubList = document.getElementById(`roomSubList${i}`);
+            roomSubList.style.height = `${originalHeights[i]}px`;
+        }
     }
 
     let anchor = 0;
