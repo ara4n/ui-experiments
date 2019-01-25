@@ -79,7 +79,7 @@ body {
         }
     }
 
-    function applyOverflow(overflow, sections) {
+    function applyOverflow(overflow, sections, blend) {
         //console.log("applyOverflow", overflow, sections);
         // take the given overflow amount, and applies it to the given sections.
         // calls itself recursively until it has distributed all the overflow
@@ -87,9 +87,7 @@ body {
 
         let unclampedSections = [];
 
-        console.log(`blendOverflow = ${blendOverflow}`);
-
-        let overflowPerSection = blendOverflow ? (overflow / sections.length) : overflow;
+        let overflowPerSection = blend ? (overflow / sections.length) : overflow;
         for (const i of sections) {
             newHeight = clamp(heights[i] - overflowPerSection, minHeight, getMaxHeight(i));
             if (newHeight == heights[i] - overflowPerSection) {
@@ -103,7 +101,7 @@ body {
 
             // console.log(`for section ${i} overflow is ${overflow}`);
 
-            if (!blendOverflow) {
+            if (!blend) {
                 overflowPerSection = overflow;
                 if (Math.abs(overflow) < 1.0) break;
             }
@@ -114,7 +112,7 @@ body {
             // XXX: this equally could be done as a loop rather than recursion;
             // while (abs(overflow) > 1) { keep applying overflow to unclamped sections }
             console.log("recursing with", overflow, unclampedSections);
-            overflow = applyOverflow(overflow, unclampedSections);
+            overflow = applyOverflow(overflow, unclampedSections, blend);
         }
 
         return overflow;
@@ -127,7 +125,7 @@ body {
             for (let i = anchor - 1; i >= 1; i--) {
                 sections.push(i);
             }
-            overflowAbove = applyOverflow(overflowAbove, sections);
+            overflowAbove = applyOverflow(overflowAbove, sections, blendOverflow);
         }
         return overflowAbove;
     }
@@ -139,7 +137,7 @@ body {
             for (let i = anchor + 1; i <= sectionCount; i++) {
                 sections.push(i);
             }
-            overflowBelow = applyOverflow(overflowBelow, sections);
+            overflowBelow = applyOverflow(overflowBelow, sections, blendOverflow);
             //console.log(`rebalanced downstream with ${overflowBelow}`);
         }
         return overflowBelow;
@@ -200,40 +198,24 @@ body {
 
     function onResize(e) {
         let newHeight = getTotalHeight();
-
         let currHeight = 0;
-        for (let i = 1; i <= sectionCount; i++) currHeight += originalHeights[i];
-
-        let offset = newHeight - currHeight;
-        let unclampedSections = [];
-        // XXX: this is screaming out to be unified with the main layout algorithm
-        // rather than effectively reimplementing it for the special case of
-        // resizing the total list...
-        for (let i = 1; i <= sectionCount; i++) unclampedSections.push(i);
-        while (Math.abs(offset) > 1.0 && unclampedSections.length) {
-
-            let offsetPerSection = Math.sign(offset) * Math.ceil(Math.abs(offset) / unclampedSections.length);
-            //console.log(`resizing with offset ${offset} and offsetPerSection ${offsetPerSection} and unclampedSections `, unclampedSections);
-            const sections = unclampedSections.slice(0);
-            for (let i of sections) {
-                const fixedHeight = clamp(originalHeights[i] + offsetPerSection, minHeight, getMaxHeight(i));
-                if (fixedHeight !== originalHeights[i] + offsetPerSection) {
-                    unclampedSections.splice(unclampedSections.indexOf(i), 1);
-                }
-                console.log(`reducing offset ${offset} by ${fixedHeight - originalHeights[i]}`);
-                offset -= fixedHeight - originalHeights[i];
-                if (Math.abs(offset) < 1.0) {
-                    break;
-                }
-                originalHeights[i] = fixedHeight;
-            }
+        let sections = [];
+        for (let i = 1; i <= sectionCount; i++) {
+            currHeight += originalHeights[i];
+            sections.push(i);
         }
+        let offset = newHeight - currHeight;
+
+        heights = originalHeights.slice(0);
+        applyOverflow(-offset, sections, true);
 
         // apply the heights
         for (let i = 1; i <= sectionCount; i++) {
             const roomSubList = document.getElementById(`roomSubList${i}`);
-            roomSubList.style.height = `${originalHeights[i]}px`;
+            roomSubList.style.height = `${heights[i]}px`;
         }
+
+        originalHeights = heights;
     }
 
     let anchor = 0;
